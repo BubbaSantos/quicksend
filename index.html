@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>QuickSend</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234a8cf7'/%3E%3Cg transform='translate(14,14) scale(3)'%3E%3Cpath d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z' fill='white'/%3E%3C/g%3E%3C/svg%3E">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234a8cf7'/%3E%3Cg transform='translate(14,14) scale(3)'%3E%3Cpath d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z' fill='white'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="QuickSend">
   <meta name="theme-color" content="#1a1a1a">
@@ -55,11 +55,20 @@
       font-size: 16px; font-weight: 600; padding: 14px; cursor: pointer; width: 100%;
       transition: opacity .15s; }
     .btn:active { opacity: .7; }
+    .advanced { border: 1px solid var(--border); border-radius: var(--r);
+      padding: 0 14px; }
+    .advanced summary { padding: 12px 0; font-size: 13px; color: var(--dim);
+      cursor: pointer; user-select: none; list-style: none; }
+    .advanced summary::after { content: ' ›'; }
+    .advanced[open] summary::after { content: ' ↓'; }
+    .advanced[open] { padding: 0 14px 14px; }
+    .advanced .field { margin-top: 14px; }
 
     /* ── HEADER ──────────────────────────────── */
-    header { display: flex; align-items: center; justify-content: space-between;
+    .app-header { display: flex; align-items: center; justify-content: space-between;
       padding: 13px 16px; background: var(--surface);
-      border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 8px; }
+      border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 8px;
+      touch-action: manipulation; user-select: none; -webkit-user-select: none; }
     .hdr-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .hdr-title { font-size: 16px; font-weight: 700; white-space: nowrap; }
     .hdr-code { font-size: 12px; color: var(--dim); overflow: hidden;
@@ -122,12 +131,12 @@
       font-size: 20px; cursor: pointer; padding: 2px; line-height: 1; flex-shrink: 0; }
 
     #send-row { display: flex; gap: 8px; align-items: flex-end; }
-    #img-btn { background: var(--surface2); border: 1px solid var(--border);
+    #img-btn, #attach-btn { background: var(--surface2); border: 1px solid var(--border);
       border-radius: var(--r); color: var(--text); font-size: 18px;
       width: 42px; height: 42px; cursor: pointer; display: flex;
       align-items: center; justify-content: center; flex-shrink: 0;
       transition: background .15s; }
-    #img-btn:active { background: var(--border); }
+    #img-btn:active, #attach-btn:active { background: var(--border); }
     #text-input { flex: 1; background: var(--surface2); border: 1px solid var(--border);
       border-radius: var(--r); color: var(--text); font-size: 15px;
       padding: 10px 12px; outline: none; resize: none; min-height: 42px;
@@ -173,16 +182,6 @@
   <div class="settings-title">QuickSend</div>
   <p class="settings-sub">Connect to your Supabase backend</p>
   <div class="field">
-    <label>Supabase URL</label>
-    <input id="s-url" type="url" placeholder="https://xxxx.supabase.co"
-           autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
-  </div>
-  <div class="field">
-    <label>Anon Key</label>
-    <input id="s-key" type="password" placeholder="eyJ…"
-           autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
-  </div>
-  <div class="field">
     <label>Send Code</label>
     <input id="s-code" type="text" placeholder="my-device-code"
            autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
@@ -191,24 +190,37 @@
     <label>Display Name</label>
     <input id="s-name" type="text" placeholder="phone" autocomplete="off">
   </div>
+  <details class="advanced">
+    <summary>Advanced</summary>
+    <div class="field">
+      <label>Supabase URL</label>
+      <input id="s-url" type="url" placeholder="https://xxxx.supabase.co"
+             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label>Anon Key</label>
+      <input id="s-key" type="password" placeholder="eyJ…"
+             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+    </div>
+  </details>
   <button class="btn" onclick="saveSettings()">Save &amp; Connect</button>
 </div>
 
 <!-- ── MAIN SCREEN ──────────────────────────────────── -->
 <div id="main-screen" class="screen">
-  <header>
+  <div class="app-header">
     <div class="hdr-left">
       <div class="hdr-dot" id="dot"></div>
       <div>
         <div class="hdr-title" style="display:flex;align-items:center;gap:6px;">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="#4a8cf7"/></svg>
-        QuickSend
-      </div>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="#4a8cf7"/></svg>
+          QuickSend
+        </div>
         <div class="hdr-code" id="hdr-code"></div>
       </div>
     </div>
     <button class="icon-btn nf" onclick="openSettings()" title="Settings" style="font-size:22px;">&#xE690;</button>
-  </header>
+  </div>
 
   <div id="feed">
     <div class="empty-state"><div class="ei">📭</div><div>Waiting for items…</div></div>
@@ -223,6 +235,7 @@
     </div>
     <div id="send-row">
       <button id="img-btn" class="nf" onclick="document.getElementById('file-input').click()" style="font-size:22px;">&#xF0100;</button>
+      <button id="attach-btn" class="nf" onclick="document.getElementById('attach-input').click()" style="font-size:22px;">&#xF03E2;</button>
       <textarea id="text-input" placeholder="Type a message…" rows="1"></textarea>
       <button id="send-btn" onclick="handleSend()">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="white"/></svg>
@@ -232,6 +245,7 @@
 </div>
 
 <input type="file" id="file-input" accept="image/*" style="display:none">
+<input type="file" id="attach-input" style="display:none">
 
 <div id="lightbox" onclick="closeLightbox()">
   <button id="lb-close" onclick="closeLightbox()">✕</button>
@@ -267,6 +281,10 @@ function openSettings() {
   document.getElementById('s-key').value  = cfg.key;
   document.getElementById('s-code').value = cfg.code;
   document.getElementById('s-name').value = cfg.name;
+  // Auto-expand advanced if URL or key not yet set
+  const adv = document.querySelector('.advanced');
+  if (!cfg.url || !cfg.key) adv.setAttribute('open', '');
+  else adv.removeAttribute('open');
   showScreen('settings-screen');
 }
 
@@ -628,6 +646,12 @@ async function sendFile(file) {
 
 // ── FILE PICKER ───────────────────────────────────────
 document.getElementById('file-input').addEventListener('change', e => {
+  const f = e.target.files?.[0];
+  if (f) setPendingFile(f);
+  e.target.value = '';
+});
+
+document.getElementById('attach-input').addEventListener('change', e => {
   const f = e.target.files?.[0];
   if (f) setPendingFile(f);
   e.target.value = '';
