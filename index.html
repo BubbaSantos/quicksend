@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>QuickSend</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234a8cf7'/%3E%3Cg transform='translate(14,14) scale(3)'%3E%3Cpath d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z' fill='white'/%3E%3C/g%3E%3C/svg%3E">
   <link rel="apple-touch-icon" href="icon.png">
@@ -66,8 +66,12 @@
 
     /* ── HEADER ──────────────────────────────── */
     .app-header { display: flex; align-items: center; justify-content: space-between;
-      padding: 13px 16px; background: var(--surface);
-      border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 8px;
+      padding-top: max(13px, env(safe-area-inset-top, 13px));
+      padding-left: max(16px, env(safe-area-inset-left, 16px));
+      padding-right: max(16px, env(safe-area-inset-right, 16px));
+      padding-bottom: 13px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      flex-shrink: 0; gap: 8px;
       touch-action: manipulation; user-select: none; -webkit-user-select: none; }
     .hdr-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .hdr-title { font-size: 16px; font-weight: 700; white-space: nowrap; }
@@ -112,8 +116,10 @@
 
     /* ── SEND PANEL ──────────────────────────── */
     #send-panel { background: var(--surface); border-top: 1px solid var(--border);
-      padding: 10px 12px;
-      padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+      padding-top: 10px;
+      padding-left: max(16px, env(safe-area-inset-left, 16px));
+      padding-right: max(16px, env(safe-area-inset-right, 16px));
+      padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
       flex-shrink: 0; }
 
     #send-status { font-size: 12px; min-height: 18px; margin-bottom: 5px;
