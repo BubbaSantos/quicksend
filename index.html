@@ -10,6 +10,12 @@
   <meta name="apple-mobile-web-app-title" content="QuickSend">
   <meta name="theme-color" content="#1a1a1a">
   <style>
+    @font-face {
+      font-family: 'NF';
+      src: url('https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@3.3.0/patched-fonts/NerdFontsSymbolsOnly/SymbolsNerdFont-Regular.ttf') format('truetype');
+      font-display: swap;
+    }
+    .nf { font-family: 'NF', monospace; }
     :root {
       --bg: #0f0f0f;
       --surface: #1a1a1a;
@@ -135,6 +141,18 @@
       transition: opacity .15s; }
     #send-btn:active { opacity: .7; }
 
+    /* ── LIGHTBOX ────────────────────────────── */
+    #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.93);
+      display: none; align-items: center; justify-content: center;
+      z-index: 300; cursor: zoom-out; padding: 16px; }
+    #lightbox.open { display: flex; }
+    #lb-img { max-width: 100%; max-height: 100%; object-fit: contain;
+      border-radius: 8px; }
+    #lb-close { position: fixed; top: 16px; right: 16px; background: rgba(255,255,255,.12);
+      border: none; color: #fff; font-size: 22px; width: 40px; height: 40px;
+      border-radius: 50%; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; }
+
     /* ── TOAST ───────────────────────────────── */
     #toast { position: fixed; bottom: 90px; left: 50%;
       transform: translateX(-50%) translateY(10px);
@@ -189,7 +207,7 @@
         <div class="hdr-code" id="hdr-code"></div>
       </div>
     </div>
-    <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+    <button class="icon-btn nf" onclick="openSettings()" title="Settings" style="font-size:22px;">&#xE690;</button>
   </header>
 
   <div id="feed">
@@ -204,7 +222,7 @@
       <button id="preview-clear" onclick="clearPending()">✕</button>
     </div>
     <div id="send-row">
-      <button id="img-btn" onclick="document.getElementById('file-input').click()">📷</button>
+      <button id="img-btn" class="nf" onclick="document.getElementById('file-input').click()" style="font-size:22px;">&#xF0100;</button>
       <textarea id="text-input" placeholder="Type a message…" rows="1"></textarea>
       <button id="send-btn" onclick="handleSend()">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="white"/></svg>
@@ -214,6 +232,12 @@
 </div>
 
 <input type="file" id="file-input" accept="image/*" style="display:none">
+
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lb-close" onclick="closeLightbox()">✕</button>
+  <img id="lb-img" src="" alt="">
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -457,7 +481,11 @@ document.getElementById('feed').addEventListener('click', async e => {
   } else {
     const path = it.payload?.path || '';
     const name = it.payload?.name || 'file';
-    await downloadItem(path, name);
+    if (isImgName(name) || it.type === 'screenshot') {
+      await showLightbox(path, name);
+    } else {
+      await downloadItem(path, name);
+    }
   }
 });
 
@@ -477,6 +505,26 @@ async function copyText(text) {
     } catch { showToast('Copy failed'); }
   }
 }
+
+async function showLightbox(path, name) {
+  try {
+    if (!blobCache[path]) {
+      showToast('Loading…');
+      const blob = await fetchBlob(path);
+      blobCache[path] = URL.createObjectURL(blob);
+    }
+    document.getElementById('lb-img').src = blobCache[path];
+    document.getElementById('lightbox').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  } catch { showToast('Failed to load image'); }
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 
 async function downloadItem(path, name) {
   showToast('Opening…');
