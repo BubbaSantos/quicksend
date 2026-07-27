@@ -131,12 +131,12 @@
       font-size: 20px; cursor: pointer; padding: 2px; line-height: 1; flex-shrink: 0; }
 
     #send-row { display: flex; gap: 8px; align-items: flex-end; }
-    #img-btn, #attach-btn { background: var(--surface2); border: 1px solid var(--border);
+    #attach-btn { background: var(--surface2); border: 1px solid var(--border);
       border-radius: var(--r); color: var(--text); font-size: 18px;
       width: 42px; height: 42px; cursor: pointer; display: flex;
       align-items: center; justify-content: center; flex-shrink: 0;
       transition: background .15s; }
-    #img-btn:active, #attach-btn:active { background: var(--border); }
+    #attach-btn:active { background: var(--border); }
     #text-input { flex: 1; background: var(--surface2); border: 1px solid var(--border);
       border-radius: var(--r); color: var(--text); font-size: 15px;
       padding: 10px 12px; outline: none; resize: none; min-height: 42px;
@@ -234,7 +234,6 @@
       <button id="preview-clear" onclick="clearPending()">✕</button>
     </div>
     <div id="send-row">
-      <button id="img-btn" class="nf" onclick="document.getElementById('file-input').click()" style="font-size:22px;">&#xF0100;</button>
       <button id="attach-btn" class="nf" onclick="document.getElementById('attach-input').click()" style="font-size:22px;">&#xF03E2;</button>
       <textarea id="text-input" placeholder="Type a message…" rows="1"></textarea>
       <button id="send-btn" onclick="handleSend()">
@@ -244,7 +243,6 @@
   </div>
 </div>
 
-<input type="file" id="file-input" accept="image/*" style="display:none">
 <input type="file" id="attach-input" style="display:none">
 
 <div id="lightbox" onclick="closeLightbox()">
@@ -645,12 +643,6 @@ async function sendFile(file) {
 }
 
 // ── FILE PICKER ───────────────────────────────────────
-document.getElementById('file-input').addEventListener('change', e => {
-  const f = e.target.files?.[0];
-  if (f) setPendingFile(f);
-  e.target.value = '';
-});
-
 document.getElementById('attach-input').addEventListener('change', e => {
   const f = e.target.files?.[0];
   if (f) setPendingFile(f);
@@ -713,6 +705,13 @@ function showToast(msg) {
 }
 
 // ── INIT ──────────────────────────────────────────────
+// Prevent iOS Safari pull-to-refresh — only allow touchmove inside the feed scroll container
+document.addEventListener('touchmove', e => {
+  if (!e.target.closest('#feed') && !e.target.closest('#settings-screen')) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
 loadConfig();
 if (isConfigured()) {
   document.getElementById('hdr-code').textContent = `code: ${cfg.code}  ·  ${cfg.name}`;
