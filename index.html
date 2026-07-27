@@ -209,7 +209,7 @@
 <!-- ── MAIN SCREEN ──────────────────────────────────── -->
 <div id="main-screen" class="screen">
   <div class="app-header">
-    <div class="hdr-left">
+    <div class="hdr-left" onclick="manualRefresh()" style="cursor:pointer;">
       <div class="hdr-dot" id="dot"></div>
       <div>
         <div class="hdr-title" style="display:flex;align-items:center;gap:6px;">
@@ -378,6 +378,13 @@ async function poll() {
 
 function startPolling() { poll(); pollTimer = setInterval(poll, 1000); }
 function stopPolling()  { clearInterval(pollTimer); pollTimer = null; polling = false; }
+
+function manualRefresh() {
+  initialized = false;
+  lastSeen = null;
+  poll();
+  showToast('Refreshed');
+}
 
 function setDot(state) {
   const d = document.getElementById('dot');
