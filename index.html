@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>QuickSend</title>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #252525;
+      --border: #2e2e2e;
+      --text: #e8e8e8;
+      --dim: #888;
+      --accent: #4a8cf7;
+      --success: #4caf50;
+      --error: #f44336;
+      --r: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px; overscroll-behavior: none; }
+
+    /* ── SCREENS ─────────────────────────────── */
+    .screen { display: none; flex-direction: column; height: 100dvh; overflow: hidden; }
+    .screen.active { display: flex; }
+
+    /* ── SETTINGS ────────────────────────────── */
+    #settings-screen { padding: 28px 20px 40px; overflow-y: auto; gap: 18px; }
+    .settings-logo { text-align: center; font-size: 36px; margin-bottom: 4px; }
+    .settings-title { text-align: center; font-size: 22px; font-weight: 700; }
+    .settings-sub { text-align: center; color: var(--dim); font-size: 13px; margin-bottom: 4px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 12px; color: var(--dim); font-weight: 600;
+      text-transform: uppercase; letter-spacing: .06em; }
+    .field input { background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); color: var(--text); font-size: 15px;
+      padding: 12px 14px; outline: none; width: 100%;
+      -webkit-appearance: none; }
+    .field input:focus { border-color: var(--accent); }
+    .field input::placeholder { color: var(--dim); }
+    .btn { background: var(--accent); border: none; border-radius: var(--r); color: #fff;
+      font-size: 16px; font-weight: 600; padding: 14px; cursor: pointer; width: 100%;
+      transition: opacity .15s; }
+    .btn:active { opacity: .7; }
+
+    /* ── HEADER ──────────────────────────────── */
+    header { display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 16px; background: var(--surface);
+      border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 8px; }
+    .hdr-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .hdr-title { font-size: 16px; font-weight: 700; white-space: nowrap; }
+    .hdr-code { font-size: 12px; color: var(--dim); overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .hdr-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim);
+      flex-shrink: 0; transition: background .4s; }
+    .hdr-dot.ok { background: var(--success); }
+    .hdr-dot.err { background: var(--error); }
+    .icon-btn { background: none; border: none; color: var(--dim); font-size: 20px;
+      cursor: pointer; padding: 4px; line-height: 1; flex-shrink: 0; }
+
+    /* ── FEED ────────────────────────────────── */
+    #feed { flex: 1; overflow-y: auto; padding: 10px 12px;
+      display: flex; flex-direction: column; gap: 8px; }
+    .empty-state { display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; color: var(--dim); gap: 8px; }
+    .empty-state .ei { font-size: 38px; }
+
+    .item { background: var(--surface); border-radius: var(--r);
+      padding: 9px 12px; border: 1px solid var(--border); }
+    .item-meta { display: flex; justify-content: space-between;
+      margin-bottom: 6px; font-size: 12px; color: var(--dim); }
+    .item-sender { font-weight: 600; }
+
+    .item-text { white-space: pre-wrap; word-break: break-word; line-height: 1.5;
+      cursor: pointer; border-radius: 7px; padding: 7px 9px;
+      background: var(--surface2); transition: background .15s; }
+    .item-text:active { background: var(--border); }
+
+    .item-image { cursor: pointer; border-radius: 7px; overflow: hidden;
+      background: var(--surface2); min-height: 72px;
+      display: flex; align-items: center; justify-content: center; }
+    .item-image img { width: 100%; max-height: 260px; object-fit: contain; display: block; }
+    .img-ph { color: var(--dim); font-size: 13px; padding: 16px; }
+
+    .item-file { display: flex; align-items: center; gap: 9px; cursor: pointer;
+      padding: 8px 10px; border-radius: 7px; background: var(--surface2);
+      transition: background .15s; }
+    .item-file:active { background: var(--border); }
+    .item-file-name { font-size: 14px; word-break: break-all; }
+
+    /* ── SEND PANEL ──────────────────────────── */
+    #send-panel { background: var(--surface); border-top: 1px solid var(--border);
+      padding: 10px 12px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+      flex-shrink: 0; }
+
+    #send-status { font-size: 12px; min-height: 18px; margin-bottom: 5px;
+      text-align: center; transition: opacity .3s; }
+    .st-sending { color: var(--dim); }
+    .st-sent { color: var(--success); }
+    .st-error { color: var(--error); }
+
+    #img-preview { display: none; align-items: center; gap: 8px; margin-bottom: 7px; }
+    #img-preview.show { display: flex; }
+    #preview-thumb { width: 44px; height: 44px; object-fit: cover;
+      border-radius: 7px; border: 1px solid var(--border); flex-shrink: 0; }
+    #preview-name { flex: 1; font-size: 12px; color: var(--dim); word-break: break-all; }
+    #preview-clear { background: none; border: none; color: var(--dim);
+      font-size: 20px; cursor: pointer; padding: 2px; line-height: 1; flex-shrink: 0; }
+
+    #send-row { display: flex; gap: 8px; align-items: flex-end; }
+    #img-btn { background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--r); color: var(--text); font-size: 18px;
+      width: 42px; height: 42px; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; flex-shrink: 0;
+      transition: background .15s; }
+    #img-btn:active { background: var(--border); }
+    #text-input { flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--r); color: var(--text); font-size: 15px;
+      padding: 10px 12px; outline: none; resize: none; min-height: 42px;
+      max-height: 120px; line-height: 1.45; font-family: inherit;
+      -webkit-appearance: none; }
+    #text-input:focus { border-color: var(--accent); }
+    #text-input::placeholder { color: var(--dim); }
+    #send-btn { background: var(--accent); border: none; border-radius: var(--r);
+      color: #fff; font-size: 20px; width: 42px; height: 42px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: opacity .15s; }
+    #send-btn:active { opacity: .7; }
+
+    /* ── TOAST ───────────────────────────────── */
+    #toast { position: fixed; bottom: 90px; left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: #383838; color: var(--text); padding: 9px 18px;
+      border-radius: 20px; font-size: 14px; opacity: 0; pointer-events: none;
+      transition: opacity .2s, transform .2s; z-index: 200; white-space: nowrap;
+      max-width: 90vw; text-align: center; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- ── SETTINGS SCREEN ──────────────────────────────── -->
+<div id="settings-screen" class="screen">
+  <div class="settings-logo">⚡</div>
+  <div class="settings-title">QuickSend</div>
+  <p class="settings-sub">Connect to your Supabase backend</p>
+  <div class="field">
+    <label>Supabase URL</label>
+    <input id="s-url" type="url" placeholder="https://xxxx.supabase.co"
+           autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+  </div>
+  <div class="field">
+    <label>Anon Key</label>
+    <input id="s-key" type="password" placeholder="eyJ…"
+           autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+  </div>
+  <div class="field">
+    <label>Send Code</label>
+    <input id="s-code" type="text" placeholder="my-device-code"
+           autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+  </div>
+  <div class="field">
+    <label>Display Name</label>
+    <input id="s-name" type="text" placeholder="phone" autocomplete="off">
+  </div>
+  <button class="btn" onclick="saveSettings()">Save &amp; Connect</button>
+</div>
+
+<!-- ── MAIN SCREEN ──────────────────────────────────── -->
+<div id="main-screen" class="screen">
+  <header>
+    <div class="hdr-left">
+      <div class="hdr-dot" id="dot"></div>
+      <div>
+        <div class="hdr-title">⚡ QuickSend</div>
+        <div class="hdr-code" id="hdr-code"></div>
+      </div>
+    </div>
+    <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+  </header>
+
+  <div id="feed">
+    <div class="empty-state"><div class="ei">📭</div><div>Waiting for items…</div></div>
+  </div>
+
+  <div id="send-panel">
+    <div id="send-status"></div>
+    <div id="img-preview">
+      <img id="preview-thumb" src="" alt="preview">
+      <span id="preview-name"></span>
+      <button id="preview-clear" onclick="clearPending()">✕</button>
+    </div>
+    <div id="send-row">
+      <button id="img-btn" onclick="document.getElementById('file-input').click()">📷</button>
+      <textarea id="text-input" placeholder="Type a message…" rows="1"></textarea>
+      <button id="send-btn" onclick="handleSend()">↑</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept="image/*" style="display:none">
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── CONFIG ────────────────────────────────────────────
+let cfg = {};
+function loadConfig() {
+  cfg = {
+    url:  (localStorage.getItem('qs_url')  || '').replace(/\/$/, ''),
+    key:  localStorage.getItem('qs_key')  || '',
+    code: localStorage.getItem('qs_code') || '',
+    name: localStorage.getItem('qs_name') || 'phone',
+  };
+}
+function isConfigured() { return !!(cfg.url && cfg.key && cfg.code); }
+
+// ── SCREENS ───────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function openSettings() {
+  stopPolling();
+  document.getElementById('s-url').value  = cfg.url;
+  document.getElementById('s-key').value  = cfg.key;
+  document.getElementById('s-code').value = cfg.code;
+  document.getElementById('s-name').value = cfg.name;
+  showScreen('settings-screen');
+}
+
+function saveSettings() {
+  const url  = document.getElementById('s-url').value.trim().replace(/\/$/, '');
+  const key  = document.getElementById('s-key').value.trim();
+  const code = document.getElementById('s-code').value.trim();
+  const name = document.getElementById('s-name').value.trim() || 'phone';
+  if (!url || !key || !code) { showToast('Please fill in URL, key, and code'); return; }
+  localStorage.setItem('qs_url',  url);
+  localStorage.setItem('qs_key',  key);
+  localStorage.setItem('qs_code', code);
+  localStorage.setItem('qs_name', name);
+  loadConfig();
+  resetState();
+  document.getElementById('hdr-code').textContent = `code: ${cfg.code}  ·  ${cfg.name}`;
+  showScreen('main-screen');
+  startPolling();
+}
+
+// ── STATE ─────────────────────────────────────────────
+let items       = [];   // newest-first, max 20
+let lastSeen    = null; // created_at of newest fetched item
+let initialized = false;
+let blobCache   = {};   // storagePath → objectURL
+let loadingSet  = new Set();
+let polling     = false;
+let pollTimer   = null;
+let pendingFile = null;
+
+function resetState() {
+  items = []; lastSeen = null; initialized = false;
+  blobCache = {}; loadingSet.clear();
+  polling = false;
+}
+
+// ── API ───────────────────────────────────────────────
+function apiHdrs(extra) {
+  return Object.assign(
+    { 'apikey': cfg.key, 'Authorization': `Bearer ${cfg.key}`, 'Content-Type': 'application/json' },
+    extra
+  );
+}
+
+async function fetchBlob(storagePath) {
+  const res = await fetch(`${cfg.url}/storage/v1/object/${storagePath}`, {
+    headers: { 'apikey': cfg.key, 'Authorization': `Bearer ${cfg.key}` },
+  });
+  if (!res.ok) throw new Error(`storage ${res.status}`);
+  return res.blob();
+}
+
+// ── POLLING ───────────────────────────────────────────
+async function poll() {
+  if (polling) return;
+  polling = true;
+  try {
+    const params = new URLSearchParams({
+      select: '*',
+      send_code: `eq.${cfg.code}`,
+      order: 'created_at.desc',
+      limit: '20',
+    });
+    // URLSearchParams encodes + → %2B and : → %3A automatically
+    if (lastSeen) params.set('created_at', `gt.${lastSeen}`);
+
+    const res = await fetch(`${cfg.url}/rest/v1/send_items?${params}`, {
+      headers: apiHdrs(),
+    });
+    if (!res.ok) throw new Error(`db ${res.status}`);
+    const fresh = await res.json();
+
+    setDot('ok');
+    if (!initialized) {
+      items = fresh;
+      initialized = true;
+    } else if (fresh.length > 0) {
+      items = [...fresh, ...items].slice(0, 20);
+    }
+    if (fresh.length > 0) {
+      lastSeen = fresh[0].created_at;
+      renderFeed();
+    } else if (!initialized) {
+      renderFeed(); // show empty state
+    }
+  } catch (e) {
+    setDot('err');
+    if (!initialized) { initialized = true; renderFeed(); }
+  } finally {
+    polling = false;
+  }
+}
+
+function startPolling() { poll(); pollTimer = setInterval(poll, 1000); }
+function stopPolling()  { clearInterval(pollTimer); pollTimer = null; polling = false; }
+
+function setDot(state) {
+  const d = document.getElementById('dot');
+  d.classList.remove('ok', 'err');
+  d.classList.add(state);
+}
+
+// ── RENDERING ─────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function relTime(ts) {
+  const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (s < 5)   return 'just now';
+  if (s < 60)  return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60)  return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24)  return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function isImgName(n) { return /\.(png|jpe?g|gif|webp|bmp|svg|heic|avif)$/i.test(n || ''); }
+
+function itemHTML(it) {
+  const sender = esc(it.sender || 'unknown');
+  const time   = esc(relTime(it.created_at));
+  let body = '';
+
+  if (it.type === 'text') {
+    body = `<div class="item-text">${esc(it.payload?.content || '')}</div>`;
+  } else {
+    const name = it.payload?.name || 'file';
+    const path = it.payload?.path || '';
+    if (isImgName(name) || it.type === 'screenshot') {
+      const cached = blobCache[path] || '';
+      body = `<div class="item-image">
+        ${cached
+          ? `<img src="${esc(cached)}" data-path="${esc(path)}" class="fi" alt="${esc(name)}">`
+          : `<img data-path="${esc(path)}" class="fi" alt="${esc(name)}" style="display:none">
+             <div class="img-ph">🖼️ ${esc(name)}</div>`
+        }
+      </div>`;
+    } else {
+      body = `<div class="item-file">
+        <span>📎</span>
+        <span class="item-file-name">${esc(name)}</span>
+      </div>`;
+    }
+  }
+
+  return `<div class="item" data-id="${esc(it.id)}" data-type="${esc(it.type)}">
+    <div class="item-meta">
+      <span class="item-sender">${sender}</span>
+      <span>${time}</span>
+    </div>
+    ${body}
+  </div>`;
+}
+
+function renderFeed() {
+  const feed = document.getElementById('feed');
+  const st   = feed.scrollTop;
+
+  if (items.length === 0) {
+    feed.innerHTML = `<div class="empty-state">
+      <div class="ei">📭</div><div>No items yet</div></div>`;
+    return;
+  }
+
+  feed.innerHTML = items.map(itemHTML).join('');
+  feed.scrollTop = st;
+  loadFeedImages();
+}
+
+function loadFeedImages() {
+  document.querySelectorAll('.fi[data-path]').forEach(img => {
+    const path = img.dataset.path;
+    if (!path) return;
+    if (blobCache[path]) {
+      img.src = blobCache[path];
+      img.style.display = '';
+      const ph = img.nextElementSibling;
+      if (ph?.classList.contains('img-ph')) ph.style.display = 'none';
+      return;
+    }
+    if (loadingSet.has(path)) return;
+    loadingSet.add(path);
+    fetchBlob(path).then(blob => {
+      const url = URL.createObjectURL(blob);
+      blobCache[path] = url;
+      loadingSet.delete(path);
+      // Update any live element with this path
+      const live = document.querySelector(`.fi[data-path="${CSS.escape(path)}"]`);
+      if (live) {
+        live.src = url;
+        live.style.display = '';
+        const ph = live.nextElementSibling;
+        if (ph?.classList.contains('img-ph')) ph.style.display = 'none';
+      }
+    }).catch(() => loadingSet.delete(path));
+  });
+}
+
+// ── EVENT DELEGATION (feed clicks) ────────────────────
+document.getElementById('feed').addEventListener('click', async e => {
+  const el = e.target.closest('.item');
+  if (!el) return;
+  const it = items.find(i => i.id === el.dataset.id);
+  if (!it) return;
+
+  if (it.type === 'text') {
+    await copyText(it.payload?.content || '');
+  } else {
+    const path = it.payload?.path || '';
+    const name = it.payload?.name || 'file';
+    await downloadItem(path, name);
+  }
+});
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Copied!');
+  } catch {
+    try {
+      const ta = Object.assign(document.createElement('textarea'), { value: text });
+      Object.assign(ta.style, { position: 'fixed', opacity: '0' });
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Copied!');
+    } catch { showToast('Copy failed'); }
+  }
+}
+
+async function downloadItem(path, name) {
+  showToast('Opening…');
+  try {
+    if (!blobCache[path]) {
+      const blob = await fetchBlob(path);
+      blobCache[path] = URL.createObjectURL(blob);
+    }
+    const a = Object.assign(document.createElement('a'), {
+      href: blobCache[path], download: name, target: '_blank',
+    });
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch { showToast('Failed to open'); }
+}
+
+// ── SEND ──────────────────────────────────────────────
+function setStatus(msg, cls) {
+  const el = document.getElementById('send-status');
+  el.textContent = msg;
+  el.className = cls || '';
+}
+
+async function handleSend() {
+  if (pendingFile) {
+    await sendFile(pendingFile);
+    clearPending();
+  } else {
+    const txt = document.getElementById('text-input').value.trim();
+    if (!txt) return;
+    await sendText(txt);
+    document.getElementById('text-input').value = '';
+    autoResize();
+  }
+}
+
+async function sendText(content) {
+  setStatus('Sending…', 'st-sending');
+  try {
+    const res = await fetch(`${cfg.url}/rest/v1/send_items`, {
+      method: 'POST',
+      headers: apiHdrs({ 'Prefer': 'return=minimal' }),
+      body: JSON.stringify({
+        id: crypto.randomUUID(),
+        send_code: cfg.code,
+        sender: cfg.name,
+        type: 'text',
+        payload: { content },
+      }),
+    });
+    if (!res.ok) throw new Error(await res.text() || res.status);
+    setStatus('Sent ✓', 'st-sent');
+    setTimeout(() => setStatus(''), 2000);
+    poll();
+  } catch (e) {
+    setStatus(`Error: ${e.message}`, 'st-error');
+  }
+}
+
+async function sendFile(file) {
+  setStatus('Uploading…', 'st-sending');
+  try {
+    const uuid     = crypto.randomUUID();
+    const filename = file.name || `image_${Date.now()}.jpg`;
+    const encoded  = encodeURIComponent(filename);
+    const spath    = `${cfg.code}/${uuid}/${encoded}`;
+
+    const up = await fetch(`${cfg.url}/storage/v1/object/send-files/${spath}`, {
+      method: 'POST',
+      headers: {
+        'apikey': cfg.key,
+        'Authorization': `Bearer ${cfg.key}`,
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+      body: file,
+    });
+    if (!up.ok) throw new Error(`Upload ${up.status}: ${await up.text()}`);
+
+    const type = file.type?.startsWith('image/') ? 'screenshot' : 'file';
+    const db = await fetch(`${cfg.url}/rest/v1/send_items`, {
+      method: 'POST',
+      headers: apiHdrs({ 'Prefer': 'return=minimal' }),
+      body: JSON.stringify({
+        id: crypto.randomUUID(),
+        send_code: cfg.code,
+        sender: cfg.name,
+        type,
+        payload: { name: filename, path: `send-files/${spath}` },
+      }),
+    });
+    if (!db.ok) throw new Error(`DB ${db.status}`);
+
+    setStatus('Sent ✓', 'st-sent');
+    setTimeout(() => setStatus(''), 2000);
+    poll();
+  } catch (e) {
+    setStatus(`Error: ${e.message}`, 'st-error');
+  }
+}
+
+// ── FILE PICKER ───────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const f = e.target.files?.[0];
+  if (f) setPendingFile(f);
+  e.target.value = '';
+});
+
+function setPendingFile(file) {
+  pendingFile = file;
+  document.getElementById('preview-name').textContent = file.name || 'image';
+  const fr = new FileReader();
+  fr.onload = e => { document.getElementById('preview-thumb').src = e.target.result; };
+  fr.readAsDataURL(file);
+  document.getElementById('img-preview').classList.add('show');
+  document.getElementById('text-input').placeholder = 'Add a caption (optional)';
+}
+
+function clearPending() {
+  pendingFile = null;
+  document.getElementById('img-preview').classList.remove('show');
+  document.getElementById('preview-thumb').src = '';
+  document.getElementById('text-input').placeholder = 'Type a message…';
+}
+
+// ── PASTE IMAGE ───────────────────────────────────────
+document.addEventListener('paste', e => {
+  if (document.getElementById('main-screen').classList.contains('active')) {
+    for (const it of (e.clipboardData?.items || [])) {
+      if (it.type.startsWith('image/')) {
+        const f = it.getAsFile();
+        if (f) {
+          const named = new File([f], `paste_${Date.now()}.png`, { type: f.type });
+          setPendingFile(named);
+          e.preventDefault();
+        }
+        break;
+      }
+    }
+  }
+});
+
+// ── TEXTAREA AUTO-RESIZE ──────────────────────────────
+const txInput = document.getElementById('text-input');
+txInput.addEventListener('input', autoResize);
+txInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+});
+function autoResize() {
+  txInput.style.height = 'auto';
+  txInput.style.height = Math.min(txInput.scrollHeight, 120) + 'px';
+}
+
+// ── TOAST ─────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── INIT ──────────────────────────────────────────────
+loadConfig();
+if (isConfigured()) {
+  document.getElementById('hdr-code').textContent = `code: ${cfg.code}  ·  ${cfg.name}`;
+  showScreen('main-screen');
+  startPolling();
+} else {
+  showScreen('settings-screen');
+}
+</script>
+</body>
+</html>
