@@ -379,12 +379,7 @@ async function poll() {
 function startPolling() { poll(); pollTimer = setInterval(poll, 1000); }
 function stopPolling()  { clearInterval(pollTimer); pollTimer = null; polling = false; }
 
-function manualRefresh() {
-  initialized = false;
-  lastSeen = null;
-  poll();
-  showToast('Refreshed');
-}
+function manualRefresh() { location.reload(); }
 
 function setDot(state) {
   const d = document.getElementById('dot');
