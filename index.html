@@ -257,15 +257,18 @@
 
 // ── CONFIG ────────────────────────────────────────────
 let cfg = {};
+const DEFAULT_URL = 'https://baafdbfmcdviwszphuvl.supabase.co';
+const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhYWZkYmZtY2R2aXdzenBodXZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Nzg0MDQsImV4cCI6MjA5ODI1NDQwNH0.ph6fyXVeOz9f_NRSEQwq-yGYntpadmHakz2eg_14S-M';
+
 function loadConfig() {
   cfg = {
-    url:  (localStorage.getItem('qs_url')  || '').replace(/\/$/, ''),
-    key:  localStorage.getItem('qs_key')  || '',
+    url:  (localStorage.getItem('qs_url')  || DEFAULT_URL).replace(/\/$/, ''),
+    key:  localStorage.getItem('qs_key')  || DEFAULT_KEY,
     code: localStorage.getItem('qs_code') || '',
     name: localStorage.getItem('qs_name') || 'phone',
   };
 }
-function isConfigured() { return !!(cfg.url && cfg.key && cfg.code); }
+function isConfigured() { return !!cfg.code; }
 
 // ── SCREENS ───────────────────────────────────────────
 function showScreen(id) {
