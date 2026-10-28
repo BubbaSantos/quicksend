@@ -101,10 +101,7 @@
       cursor: pointer; border-radius: 7px; padding: 7px 9px;
       background: var(--surface2); transition: background .15s; }
     .item-text:active { background: var(--border); }
-    .item-text.has-link { display: flex; align-items: flex-start; gap: 8px; }
-    .item-text.has-link .link-text { flex: 1; min-width: 0; text-decoration: underline; text-underline-offset: 2px; }
-    .copy-btn { flex: none; font-size: 12px; color: var(--dim); background: var(--border);
-      border: 0; border-radius: 6px; padding: 3px 8px; }
+    .item-text a.msg-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
     .item-image { cursor: pointer; border-radius: 7px; overflow: hidden;
       background: var(--surface2); min-height: 72px;
@@ -167,6 +164,12 @@
     #lightbox.open { display: flex; }
     #lb-img { max-width: 100%; max-height: 100%; object-fit: contain;
       border-radius: 8px; }
+    #lb-actions { position: fixed; left: 0; right: 0; bottom: calc(24px + env(safe-area-inset-bottom));
+      display: flex; justify-content: center; gap: 12px; }
+    .lb-act { background: rgba(255,255,255,.16); border: none; color: #fff; font-size: 15px;
+      font-weight: 600; padding: 11px 22px; border-radius: 22px; cursor: pointer;
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+    .lb-act:active { background: rgba(255,255,255,.3); }
     #lb-close { position: fixed; top: 16px; right: 16px; background: rgba(255,255,255,.12);
       border: none; color: #fff; font-size: 22px; width: 40px; height: 40px;
       border-radius: 50%; cursor: pointer; display: flex; align-items: center;
@@ -230,7 +233,12 @@
         <div class="hdr-code" id="hdr-code"></div>
       </div>
     </div>
-    <button class="icon-btn nf" onclick="openSettings()" title="Settings" style="font-size:22px;">&#xE690;</button>
+    <div style="display:flex;align-items:center;gap:2px;">
+      <button class="icon-btn" onclick="clearHistory()" title="Clear history" aria-label="Clear history">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v6M14 10v6"/></svg>
+      </button>
+      <button class="icon-btn nf" onclick="openSettings()" title="Settings" style="font-size:22px;">&#xE690;</button>
+    </div>
   </div>
 
   <div id="feed">
@@ -259,6 +267,10 @@
 <div id="lightbox" onclick="closeLightbox()">
   <button id="lb-close" onclick="closeLightbox()">✕</button>
   <img id="lb-img" src="" alt="">
+  <div id="lb-actions" onclick="event.stopPropagation()">
+    <button class="lb-act" type="button" onclick="lbSave()">Save</button>
+    <button class="lb-act" type="button" onclick="lbCopy()">Copy</button>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -433,12 +445,19 @@ function relTime(ts) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-// First web link in a message ("" if none); a bare www. address gets https://.
-function firstUrl(text) {
-  const m = (text || '').match(/\b(?:https?:\/\/|www\.)[^\s<>"']+/i);
-  if (!m) return '';
-  const u = m[0].replace(/[.,;:!?)\]}]+$/, '');
-  return /^https?:\/\//i.test(u) ? u : 'https://' + u;
+// Message text as HTML with only its web links wrapped in anchors (tapping a link opens it).
+function linkify(text) {
+  const re = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+  let out = '', last = 0, m;
+  while ((m = re.exec(text))) {
+    const url = m[0].replace(/[.,;:!?)\]}]+$/, '');
+    out += esc(text.slice(last, m.index));
+    const href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+    out += `<a class="msg-link" href="${esc(href)}" target="_blank" rel="noopener">${esc(url)}</a>`;
+    last = m.index + url.length;
+    re.lastIndex = last;
+  }
+  return out + esc(text.slice(last));
 }
 
 function isImgName(n) { return /\.(png|jpe?g|gif|webp|bmp|svg|heic|avif)$/i.test(n || ''); }
@@ -450,10 +469,8 @@ function itemHTML(it) {
 
   if (it.type === 'text') {
     const content = it.payload?.content || '';
-    // A message with a link opens it when tapped; a small Copy button copies the text instead.
-    body = firstUrl(content)
-      ? `<div class="item-text has-link"><span class="link-text">${esc(content)}</span><button class="copy-btn" type="button">Copy</button></div>`
-      : `<div class="item-text">${esc(content)}</div>`;
+    // Only the link itself is underlined and opens when tapped; the rest of the text copies it.
+    body = `<div class="item-text">${linkify(content)}</div>`;
   } else {
     const name = it.payload?.name || 'file';
     const path = it.payload?.path || '';
@@ -535,10 +552,8 @@ document.getElementById('feed').addEventListener('click', async e => {
   if (!it) return;
 
   if (it.type === 'text') {
-    const content = it.payload?.content || '';
-    const url = firstUrl(content);
-    if (url && !e.target.closest('.copy-btn')) window.open(url, '_blank', 'noopener');
-    else await copyText(content);
+    if (e.target.closest('a.msg-link')) return;   // the browser opens the link itself
+    await copyText(it.payload?.content || '');
   } else {
     const path = it.payload?.path || '';
     const name = it.payload?.name || 'file';
@@ -574,10 +589,68 @@ async function showLightbox(path, name) {
       const blob = await fetchBlob(path);
       blobCache[path] = URL.createObjectURL(blob);
     }
+    lbCurrent = { path, name };
     document.getElementById('lb-img').src = blobCache[path];
     document.getElementById('lightbox').classList.add('open');
     document.body.style.overflow = 'hidden';
   } catch { showToast('Failed to load image'); }
+}
+
+// The image open in the lightbox, for the Save and Copy buttons (long-press "Save to Photos"
+// doesn't work on a blob image, so these do it directly).
+let lbCurrent = null;
+
+function lbMime(name, blob) {
+  if (blob.type && blob.type.startsWith('image/')) return blob.type;
+  const ext = ((name || '').split('.').pop() || '').toLowerCase();
+  return { jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+           heic: 'image/heic', avif: 'image/avif', svg: 'image/svg+xml' }[ext] || 'image/png';
+}
+
+async function lbBlob() {
+  const res = await fetch(blobCache[lbCurrent.path]);
+  return res.blob();
+}
+
+async function lbSave() {
+  if (!lbCurrent) return;
+  try {
+    const blob = await lbBlob();
+    const file = new File([blob], lbCurrent.name || 'image.png', { type: lbMime(lbCurrent.name, blob) });
+    // The share sheet has "Save Image" / "Save to Photos".
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); }
+      catch (err) { if (err && err.name !== 'AbortError') throw err; }
+      return;
+    }
+    const a = Object.assign(document.createElement('a'), { href: blobCache[lbCurrent.path], download: file.name });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    showToast('Saved');
+  } catch { showToast('Save failed'); }
+}
+
+// Clipboards only take PNG for images, so redraw whatever the format is.
+function lbPng() {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext('2d').drawImage(img, 0, 0);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('png')), 'image/png');
+    };
+    img.onerror = reject;
+    img.src = blobCache[lbCurrent.path];
+  });
+}
+
+async function lbCopy() {
+  if (!lbCurrent) return;
+  try {
+    // The blob is passed as a promise so the copy still counts as the tap's own action.
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': lbPng() })]);
+    showToast('Copied!');
+  } catch { showToast('Copy failed'); }
 }
 
 function closeLightbox() {
