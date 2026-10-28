@@ -160,10 +160,10 @@
     /* ── LIGHTBOX ────────────────────────────── */
     #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.93);
       display: none; align-items: center; justify-content: center;
-      z-index: 300; cursor: zoom-out; padding: 16px; }
+      z-index: 300; cursor: zoom-out; padding: 16px; touch-action: none; }
     #lightbox.open { display: flex; }
     #lb-img { max-width: 100%; max-height: 100%; object-fit: contain;
-      border-radius: 8px; }
+      border-radius: 8px; will-change: transform; transform-origin: center; }
     #lb-actions { position: fixed; left: 0; right: 0; bottom: calc(24px + env(safe-area-inset-bottom));
       display: flex; justify-content: center; gap: 12px; }
     .lb-act { background: rgba(255,255,255,.16); border: none; color: #fff; font-size: 15px;
@@ -264,7 +264,7 @@
 
 <input type="file" id="attach-input" accept="image/*" style="display:none">
 
-<div id="lightbox" onclick="closeLightbox()">
+<div id="lightbox" onclick="lbClick(event)">
   <button id="lb-close" onclick="closeLightbox()">✕</button>
   <img id="lb-img" src="" alt="">
   <div id="lb-actions" onclick="event.stopPropagation()">
@@ -590,6 +590,7 @@ async function showLightbox(path, name) {
       blobCache[path] = URL.createObjectURL(blob);
     }
     lbCurrent = { path, name };
+    lbReset();
     document.getElementById('lb-img').src = blobCache[path];
     document.getElementById('lightbox').classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -653,7 +654,95 @@ async function lbCopy() {
   } catch { showToast('Copy failed'); }
 }
 
+// ── Lightbox gestures: pinch to zoom, drag to pan when zoomed, swipe down to close ──
+const lbG = { s: 1, x: 0, y: 0, mode: '', gestured: false };
+function lbApply(anim) {
+  const img = document.getElementById('lb-img');
+  img.style.transition = anim ? 'transform .2s ease-out' : 'none';
+  img.style.transform = `translate(${lbG.x}px, ${lbG.y}px) scale(${lbG.s})`;
+}
+function lbFade(dy) {
+  document.getElementById('lightbox').style.background =
+    `rgba(0,0,0,${0.93 * (1 - Math.min(1, Math.max(0, dy) / 400))})`;
+}
+function lbReset() {
+  lbG.s = 1; lbG.x = 0; lbG.y = 0; lbG.mode = '';
+  lbApply(false); lbFade(0);
+  document.getElementById('lightbox').style.background = '';
+}
+function lbLimit() {
+  const img = document.getElementById('lb-img');
+  const mx = Math.max(0, (img.clientWidth * lbG.s - innerWidth) / 2);
+  const my = Math.max(0, (img.clientHeight * lbG.s - innerHeight) / 2);
+  lbG.x = Math.max(-mx, Math.min(mx, lbG.x));
+  lbG.y = Math.max(-my, Math.min(my, lbG.y));
+}
+function lbClick(e) {
+  if (lbG.gestured || lbG.s > 1) return;   // the tap that ends a pinch, pan or swipe is not a close
+  closeLightbox();
+}
+(function () {
+  const box = document.getElementById('lightbox');
+  let start = null;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  box.addEventListener('touchstart', e => {
+    if (e.target.closest('button')) return;
+    const t = e.touches;
+    if (t.length === 2) {
+      lbG.mode = 'pinch'; lbG.gestured = true;
+      start = { d: dist(t), s: lbG.s, x: lbG.x, y: lbG.y,
+                mx: (t[0].clientX + t[1].clientX) / 2 - innerWidth / 2,
+                my: (t[0].clientY + t[1].clientY) / 2 - innerHeight / 2 };
+    } else if (t.length === 1) {
+      lbG.mode = lbG.s > 1 ? 'pan' : 'drag';
+      start = { px: t[0].clientX, py: t[0].clientY, x: lbG.x, y: lbG.y, t: Date.now() };
+      lbG.gestured = false;
+    }
+  }, { passive: false });
+  box.addEventListener('touchmove', e => {
+    if (!lbG.mode) return;
+    e.preventDefault();
+    const t = e.touches;
+    if (lbG.mode === 'pinch' && t.length === 2) {
+      const s = Math.max(1, Math.min(5, start.s * dist(t) / start.d));
+      // keep the point between the fingers under them while zooming
+      lbG.x = start.mx - (start.mx - start.x) * (s / start.s);
+      lbG.y = start.my - (start.my - start.y) * (s / start.s);
+      lbG.s = s; lbLimit(); lbApply(false);
+    } else if (t.length === 1 && lbG.mode === 'pan') {
+      lbG.x = start.x + t[0].clientX - start.px;
+      lbG.y = start.y + t[0].clientY - start.py;
+      if (Math.abs(t[0].clientX - start.px) + Math.abs(t[0].clientY - start.py) > 8) lbG.gestured = true;
+      lbLimit(); lbApply(false);
+    } else if (t.length === 1 && lbG.mode === 'drag') {
+      const dy = Math.max(0, t[0].clientY - start.py);
+      if (dy > 8) lbG.gestured = true;
+      lbG.y = dy; lbApply(false); lbFade(dy);
+    }
+  }, { passive: false });
+  const end = e => {
+    if (!lbG.mode) return;
+    if (lbG.mode === 'pinch') {
+      if (e.touches.length > 0) return;          // one finger still down
+      if (lbG.s < 1.05) { lbG.s = 1; lbG.x = 0; lbG.y = 0; lbApply(true); }
+    } else if (lbG.mode === 'drag') {
+      const dy = lbG.y, dt = Math.max(1, Date.now() - start.t);
+      if (dy > 110 || (dy > 40 && dy / dt > 0.6)) {
+        lbG.y = innerHeight; lbApply(true); lbFade(400);
+        setTimeout(closeLightbox, 180);
+      } else { lbG.y = 0; lbApply(true); lbFade(0); }
+    }
+    lbG.mode = '';
+    setTimeout(() => { lbG.gestured = false; }, 350);
+  };
+  box.addEventListener('touchend', end);
+  box.addEventListener('touchcancel', end);
+  // Safari's own page zoom gesture would fight the pinch.
+  box.addEventListener('gesturestart', e => e.preventDefault());
+})();
+
 function closeLightbox() {
+  lbReset();
   document.getElementById('lightbox').classList.remove('open');
   document.body.style.overflow = '';
 }
