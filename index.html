@@ -683,7 +683,7 @@ function lbClick(e) {
 }
 (function () {
   const box = document.getElementById('lightbox');
-  let start = null;
+  let start = null, lastTap = null;
   const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
   box.addEventListener('touchstart', e => {
     if (e.target.closest('button')) return;
@@ -725,6 +725,13 @@ function lbClick(e) {
     if (lbG.mode === 'pinch') {
       if (e.touches.length > 0) return;          // one finger still down
       if (lbG.s < 1.05) { lbG.s = 1; lbG.x = 0; lbG.y = 0; lbApply(true); }
+    } else if (lbG.mode === 'pan' && !lbG.gestured) {
+      // a tap while zoomed: two quick ones in the same place zoom back out
+      const now = Date.now();
+      if (lastTap && now - lastTap.t < 300 && Math.hypot(start.px - lastTap.x, start.py - lastTap.y) < 40) {
+        lbG.s = 1; lbG.x = 0; lbG.y = 0; lbApply(true); lastTap = null;
+        lbG.gestured = true;   // so the click that follows doesn't close the preview
+      } else lastTap = { t: now, x: start.px, y: start.py };
     } else if (lbG.mode === 'drag') {
       const dy = lbG.y, dt = Math.max(1, Date.now() - start.t);
       if (dy > 110 || (dy > 40 && dy / dt > 0.6)) {
