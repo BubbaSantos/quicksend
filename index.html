@@ -677,13 +677,31 @@ function lbLimit() {
   lbG.x = Math.max(-mx, Math.min(mx, lbG.x));
   lbG.y = Math.max(-my, Math.min(my, lbG.y));
 }
+let lbCloseTimer = null;
 function lbClick(e) {
   if (lbG.gestured || lbG.s > 1) return;   // the tap that ends a pinch, pan or swipe is not a close
-  closeLightbox();
+  // wait a beat: a second tap means zoom, not close
+  clearTimeout(lbCloseTimer);
+  lbCloseTimer = setTimeout(closeLightbox, 280);
 }
 (function () {
   const box = document.getElementById('lightbox');
   let start = null, lastTap = null;
+  // Two quick taps in the same place: zoom in there, or back out if already zoomed.
+  function lbTap(px, py) {
+    const t = Date.now();
+    if (lastTap && t - lastTap.t < 300 && Math.hypot(px - lastTap.x, py - lastTap.y) < 40) {
+      clearTimeout(lbCloseTimer);
+      if (lbG.s > 1) { lbG.s = 1; lbG.x = 0; lbG.y = 0; }
+      else {
+        const z = 2.5, mx = px - innerWidth / 2, my = py - innerHeight / 2;
+        lbG.s = z; lbG.x = -mx * (z - 1); lbG.y = -my * (z - 1);   // keep the tapped point under the finger
+        lbLimit();
+      }
+      lbApply(true); lastTap = null;
+      lbG.gestured = true;   // so the click that follows doesn't close the preview
+    } else lastTap = { t, x: px, y: py };
+  }
   const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
   box.addEventListener('touchstart', e => {
     if (e.target.closest('button')) return;
@@ -726,12 +744,9 @@ function lbClick(e) {
       if (e.touches.length > 0) return;          // one finger still down
       if (lbG.s < 1.05) { lbG.s = 1; lbG.x = 0; lbG.y = 0; lbApply(true); }
     } else if (lbG.mode === 'pan' && !lbG.gestured) {
-      // a tap while zoomed: two quick ones in the same place zoom back out
-      const now = Date.now();
-      if (lastTap && now - lastTap.t < 300 && Math.hypot(start.px - lastTap.x, start.py - lastTap.y) < 40) {
-        lbG.s = 1; lbG.x = 0; lbG.y = 0; lbApply(true); lastTap = null;
-        lbG.gestured = true;   // so the click that follows doesn't close the preview
-      } else lastTap = { t: now, x: start.px, y: start.py };
+      lbTap(start.px, start.py);
+    } else if (lbG.mode === 'drag' && !lbG.gestured) {
+      lbTap(start.px, start.py);
     } else if (lbG.mode === 'drag') {
       const dy = lbG.y, dt = Math.max(1, Date.now() - start.t);
       if (dy > 110 || (dy > 40 && dy / dt > 0.6)) {
