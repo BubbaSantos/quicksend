@@ -101,6 +101,10 @@
       cursor: pointer; border-radius: 7px; padding: 7px 9px;
       background: var(--surface2); transition: background .15s; }
     .item-text:active { background: var(--border); }
+    .item-text.has-link { display: flex; align-items: flex-start; gap: 8px; }
+    .item-text.has-link .link-text { flex: 1; min-width: 0; text-decoration: underline; text-underline-offset: 2px; }
+    .copy-btn { flex: none; font-size: 12px; color: var(--dim); background: var(--border);
+      border: 0; border-radius: 6px; padding: 3px 8px; }
 
     .item-image { cursor: pointer; border-radius: 7px; overflow: hidden;
       background: var(--surface2); min-height: 72px;
@@ -429,6 +433,14 @@ function relTime(ts) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+// First web link in a message ("" if none); a bare www. address gets https://.
+function firstUrl(text) {
+  const m = (text || '').match(/\b(?:https?:\/\/|www\.)[^\s<>"']+/i);
+  if (!m) return '';
+  const u = m[0].replace(/[.,;:!?)\]}]+$/, '');
+  return /^https?:\/\//i.test(u) ? u : 'https://' + u;
+}
+
 function isImgName(n) { return /\.(png|jpe?g|gif|webp|bmp|svg|heic|avif)$/i.test(n || ''); }
 
 function itemHTML(it) {
@@ -437,7 +449,11 @@ function itemHTML(it) {
   let body = '';
 
   if (it.type === 'text') {
-    body = `<div class="item-text">${esc(it.payload?.content || '')}</div>`;
+    const content = it.payload?.content || '';
+    // A message with a link opens it when tapped; a small Copy button copies the text instead.
+    body = firstUrl(content)
+      ? `<div class="item-text has-link"><span class="link-text">${esc(content)}</span><button class="copy-btn" type="button">Copy</button></div>`
+      : `<div class="item-text">${esc(content)}</div>`;
   } else {
     const name = it.payload?.name || 'file';
     const path = it.payload?.path || '';
@@ -519,7 +535,10 @@ document.getElementById('feed').addEventListener('click', async e => {
   if (!it) return;
 
   if (it.type === 'text') {
-    await copyText(it.payload?.content || '');
+    const content = it.payload?.content || '';
+    const url = firstUrl(content);
+    if (url && !e.target.closest('.copy-btn')) window.open(url, '_blank', 'noopener');
+    else await copyText(content);
   } else {
     const path = it.payload?.path || '';
     const name = it.payload?.name || 'file';
